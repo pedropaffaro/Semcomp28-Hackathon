@@ -11,6 +11,18 @@ formas_pagamento = ["pix", "cartão débito", "cartão crédito", "boleto"]
 
 nomes_estabelecimentos = ["Paffaro", "Iamato", "Akimi", "Gonçalves"]
 
+pesos_por_categoria = {
+    "alimentação": [0.6, 0.2, 0.15, 0.05],          
+    "transporte": [0.1, 0.25, 0.55, 0.1],            
+    "despesas pessoais": [0.2, 0.7, 0.05, 0.05],     
+    "educação": [0.1, 0.2, 0.5, 0.2],              
+    "casa": [0.15, 0.15, 0.3, 0.4],                
+    "saúde": [0.1, 0.3, 0.2, 0.4],                 
+    "lazer": [0.1, 0.15, 0.2, 0.55],                 
+    "comunicação": [0.25, 0.25, 0.25, 0.25],       
+    "outros": [0.2, 0.3, 0.2, 0.3],                
+}
+
 dados_estabelecimentos = {
     "alimentação": {
         "Padaria": (5, 70),
@@ -108,12 +120,13 @@ for _ in range(n):
     
     tipo_estab_escolhido = random.choice(lista_tipos_estab)
 
-    nome_empresa = random.choice(nomes_estabelecimentos)
+    pesos = pesos_por_categoria.get(cat_escolhida, [0.25, 0.25, 0.25, 0.25])
+    nome_empresa = random.choices(nomes_estabelecimentos, weights=pesos, k=1)[0]
+
     destinatario_final = f"{tipo_estab_escolhido} {nome_empresa}".strip()
     destinatarios_lista.append(destinatario_final)
     
     min_val, max_val = opcoes_estab[tipo_estab_escolhido]
-    
     valor = round(random.uniform(min_val, max_val), 2)
     valores_lista.append(valor)
 
@@ -128,7 +141,6 @@ data = {
 }
 
 df = pd.DataFrame(data)
-
 df.to_csv("transacoes_bancarias.csv", index=False, encoding="utf-8")
 
 print("✅ Dataset 'transacoes_bancarias.csv' gerado com sucesso!")
