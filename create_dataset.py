@@ -9,6 +9,7 @@ categorias = ["alimentação", "transporte", "despesas pessoais", "educação",
               "casa", "saúde", "lazer", "comunicação", "outros"]
 formas_pagamento = ["pix", "cartão débito", "cartão crédito", "boleto"]
 
+nomes_estabelecimentos = ["Paffaro", "Iamato", "Akimi", "Gonçalves"]
 
 dados_estabelecimentos = {
     "alimentação": {
@@ -107,7 +108,7 @@ for _ in range(n):
     
     tipo_estab_escolhido = random.choice(lista_tipos_estab)
 
-    nome_empresa = fake.company()
+    nome_empresa = random.choice(nomes_estabelecimentos)
     destinatario_final = f"{tipo_estab_escolhido} {nome_empresa}".strip()
     destinatarios_lista.append(destinatario_final)
     
@@ -118,7 +119,7 @@ for _ in range(n):
 
 data = {
     "id_transacao": range(1, n + 1),
-    "data": [fake.date_between(start_date='-20y', end_date='today') for _ in range(n)],
+    "data": [fake.date_between(start_date='-1y', end_date='today') for _ in range(n)],
     "hora": [fake.time(pattern="%H:%M:%S") for _ in range(n)],
     "destinatario": destinatarios_lista,  
     "valor": valores_lista,              
