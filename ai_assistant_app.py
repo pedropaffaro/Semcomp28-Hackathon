@@ -40,42 +40,131 @@
 #     df = df.sort_values(by='data')
 #     return df
 
-# def aplicar_filtro_temporal(df_completo, pergunta_usuario):
-#     """
-#     Analisa a pergunta do usuário para filtrar o DataFrame principal
-#     antes de enviar para agregação.
-#     """
-#     if df_completo.empty:
-#         return df_completo
+# import re
+# from datetime import datetime, timedelta
+# import pandas as pd # Usado para alguns cálculos de data mais complexos
 
-#     hoje = df_completo['data'].max()
-#     pergunta_lower = pergunta_usuario.lower()
-
-#     if re.search(r'último mês|ultimos 30 dias|30 dias', pergunta_lower):
-#         data_inicio = hoje - pd.DateOffset(days=30)
-#         # st.sidebar.write(f"[Debug] Aplicando filtro: 30 dias (de {data_inicio.date()} até {hoje.date()})")
-#         return df_completo[df_completo['data'] >= data_inicio]
-
-#     if re.search(r'última semana|ultimos 7 dias|7 dias', pergunta_lower):
-#         data_inicio = hoje - pd.DateOffset(days=7)
-#         # st.sidebar.write(f"[Debug] Aplicando filtro: 7 dias (de {data_inicio.date()} até {hoje.date()})")
-#         return df_completo[df_completo['data'] >= data_inicio]
-
-#     if re.search(r'mês passado|mes passado', pergunta_lower):
-#         primeiro_dia_mes_atual = hoje.replace(day=1)
-#         ultimo_dia_mes_passado = primeiro_dia_mes_atual - pd.DateOffset(days=1)
-#         primeiro_dia_mes_passado = ultimo_dia_mes_passado.replace(day=1)
-#         # st.sidebar.write(f"[Debug] Aplicando filtro: Mês passado (de {primeiro_dia_mes_passado.date()} até {ultimo_dia_mes_passado.date()})")
-#         return df_completo[(df_completo['data'] >= primeiro_dia_mes_passado) & 
-#                            (df_completo['data'] <= ultimo_dia_mes_passado)]
+# def aplicar_filtro_temporal(df_completo, data_inicio, data_fim):
     
-#     if re.search(r'este mês|mes atual', pergunta_lower):
-#         primeiro_dia_mes_atual = hoje.replace(day=1)
-#         # st.sidebar.write(f"[Debug] Aplicando filtro: Este mês (de {primeiro_dia_mes_atual.date()} até {hoje.date()})")
-#         return df_completo[df_completo['data'] >= primeiro_dia_mes_atual]
+#     # Validação inicial para garantir que o DataFrame e as datas são utilizáveis
+#     if df_completo is None or df_completo.empty:
+#         return pd.DataFrame() # Retorna um DataFrame vazio se o original for inválido
 
-#     # st.sidebar.write("[Debug] Nenhum filtro temporal detectado. Usando o dataset completo.")
-#     return df_completo
+#     # Se ambas as datas forem None, não há nada para filtrar, retorna o original
+#     if data_inicio is None and data_fim is None:
+#         return df_completo.copy()
+
+#     # Cria uma cópia para não modificar o DataFrame original
+#     df_filtrado = df_completo.copy()
+    
+#     # Aplica o filtro de data de início, se ela for fornecida
+#     if pd.notna(data_inicio):
+#         df_filtrado = df_filtrado[df_filtrado['data'] >= data_inicio]
+
+#     # Aplica o filtro de data de fim, se ela for fornecida
+#     if pd.notna(data_fim):
+#         df_filtrado = df_filtrado[df_filtrado['data'] <= data_fim]
+        
+#     return df_filtrado
+
+
+# def filtro_temporal(texto_usuario, data_referencia=None):
+#     """
+#     Interpreta uma vasta gama de expressões de tempo em um texto e retorna as datas de início e fim.
+#     Retorna (None, None) se nenhum período for encontrado.
+#     """
+#     if data_referencia is None:
+#         # A data de referência é hoje. Usei a data do nosso contexto.
+#         data_referencia = datetime.now()
+
+#     texto = texto_usuario.lower()
+#     hoje = data_referencia.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+#     meses = {
+#         "janeiro": 1, "fevereiro": 2, "março": 3, "abril": 4, "maio": 5, "junho": 6,
+#         "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10, "novembro": 11, "dezembro": 12
+#     }
+#     # Inverte o dicionário para buscar nomes a partir dos números
+#     meses_inv = {v: k for k, v in meses.items()}
+
+#     # --- Padrões de Regex (do mais específico para o mais geral) ---
+
+#     # 1. Intervalo de datas: "de DD/MM/AAAA a DD/MM/AAAA" ou "de DD de mes a DD de mes"
+#     # 1. Últimos X períodos
+#     padrao_intervalo = re.search(
+#         r"(?:do\s+|dos\s+)?(?:último\s+|últimos\s+)?\s*(\d+)?\s*(dia|dias|semana|semanas|mes|m[eê]s|ano|anos)?",
+#         texto
+#     )
+
+#     if padrao_intervalo:
+#         quantidade = int(padrao_intervalo.group(1)) if padrao_intervalo.group(1) else 1
+#         unidade = padrao_intervalo.group(2) if padrao_intervalo.group(2) else "mes"
+
+#         if "dia" in unidade:
+#             inicio = data_referencia - timedelta(days=quantidade)
+#         elif "semana" in unidade:
+#             inicio = data_referencia - timedelta(weeks=quantidade)
+#         elif "mes" in unidade:
+#             inicio = data_referencia - relativedelta(months=quantidade)
+#         elif "ano" in unidade:
+#             inicio = data_referencia - relativedelta(years=quantidade)
+#         else:
+#             return None, None
+
+#         return inicio.replace(hour=0, minute=0, second=0), data_referencia
+
+#     # 2. Data específica: "DD de Mês de AAAA" ou "DD/MM/AAAA"
+#     padrao_data_completa = re.search(r"(\d{1,2})\s*de\s*(\w+)\s*de\s*(\d{4})", texto)
+#     if padrao_data_completa:
+#         dia, mes_nome, ano = padrao_data_completa.groups()
+#         if mes_nome in meses:
+#             data = datetime(int(ano), meses[mes_nome], int(dia))
+#             return data, data
+
+#     # 3. Mês e Ano: "em Mês de AAAA"
+#     padrao_mes_ano = re.search(r"(\w+)\s*de\s*(\d{4})", texto)
+#     if padrao_mes_ano:
+#         mes_nome, ano = padrao_mes_ano.groups()
+#         if mes_nome in meses:
+#             data_inicio = datetime(int(ano), meses[mes_nome], 1)
+#             data_fim = data_inicio + pd.offsets.MonthEnd(1)
+#             return data_inicio, data_fim
+
+#     # 4. Apenas o Mês (assume o ano atual)
+#     for mes_nome, mes_num in meses.items():
+#         if re.search(r'\b' + mes_nome + r'\b', texto):
+#             data_inicio = datetime(hoje.year, mes_num, 1)
+#             data_fim = data_inicio + pd.offsets.MonthEnd(1)
+#             return data_inicio, data_fim
+
+#     # 5. Períodos relativos (como na função anterior, mas mais robustos)
+#     if re.search(r"último mês|ultimos 30 dias|ultimo mes", texto):
+#         return hoje - timedelta(days=29), hoje
+#     if re.search(r"última semana|ultimos 7 dias", texto):
+#         return hoje - timedelta(days=6), hoje
+#     if re.search(r"mês passado", texto):
+#         primeiro_dia_mes_atual = hoje.replace(day=1)
+#         ultimo_dia_mes_passado = primeiro_dia_mes_atual - timedelta(days=1)
+#         primeiro_dia_mes_passado = ultimo_dia_mes_passado.replace(day=1)
+#         return primeiro_dia_mes_passado, ultimo_dia_mes_passado
+#     if re.search(r"semana passada", texto):
+#         fim_semana_passada = hoje - timedelta(days=hoje.weekday() + 1)
+#         inicio_semana_passada = fim_semana_passada - timedelta(days=6)
+#         return inicio_semana_passada, fim_semana_passada
+#     if re.search(r"este mês|neste mês|mes atual", texto):
+#         data_inicio = hoje.replace(day=1)
+#         return data_inicio, hoje
+#     if re.search(r"esta semana|nesta semana", texto):
+#         data_inicio = hoje - timedelta(days=hoje.weekday())
+#         return data_inicio, hoje
+#     if re.search(r"ontem", texto):
+#         ontem = hoje - timedelta(days=1)
+#         return ontem, ontem
+#     if re.search(r"hoje", texto):
+#         return hoje, hoje
+
+#     # Se nada for encontrado
+#     return None, None
 
 
 # def filtrar_gastos_discricionarios(df):
@@ -147,8 +236,8 @@
 #     contexto_str = json.dumps(insights, indent=2, ensure_ascii=False)
 
 #     prompt_final = f"""
-# Você é um assistente virtual especialista em finanças, e está ajudando o usuário pelo WhatsApp.
-# Seu tom é leve, casual, direto ao ponto.
+# Você é um assistente virtual especialista em finanças do BTG Pactual, e está ajudando o usuário pelo WhatsApp.
+# Seu tom é leve, não muito formal e direto ao ponto.
 
 # ### Contexto (os dados que você analisou):
 # {contexto_str}
@@ -160,24 +249,26 @@
 # - Seja **MUITO conciso**, como em uma mensagem de WhatsApp.
 # - Use quebras de linha simples para facilitar a leitura, não parágrafos longos.
 # - Vá direto aos pontos de economia. Chame os gastos fúteis de "gastos extras".
-# - Dê exemplos concretos usando `top_5_destinatarios_com_valores`. Se houver muitas transações (ex: 7 no iFood), você pode agrupar: "Vi que foram 7 pedidos no iFood (R$ 50, R$ 45, ...), somando R$ X. Que tal diminuir?"
+# - Dê exemplos concretos usando os dados de `top_5_destinatarios_com_detalhes`. 
+#   - Use a 'quantidade', 'total_gasto' e a lista 'ultimos_gastos_formatados' para montar sua sugestão.
+#   - Os valores na lista 'ultimos_gastos_formatados' e 'total_gasto' já estão formatados como string (ex: "40.50"), basta adicionar "R$" na frente deles.
 # - **NUNCA** use jargões como "gastos discricionários", "alocação de ativos", etc.
+# - **IMPORTANTE: Sempre use "R$" (com R maiúsculo) para valores monetários. NUNCA use apenas o símbolo "$".** 
 # - Sempre termine com uma pergunta rápida e interativa.
 
-# ### Exemplo de Resposta:
+# ### Exemplo de Resposta (baseado na estrutura do contexto):
 # Olá! Dei uma olhada nos seus gastos do último mês.
 
 # Reparei em alguns pontos em que podemos melhorar para uma melhor economia:
 
-# 💡 **Ifood:** Foram 5 pedidos somando R$ 180,50! [R$ 40.50, R$ 35.00, ...]. Que tal focar em cozinhar mais e pedir só 1x na semana? Isso ajudaria a economizar!
+# **Ifood:** Foram 5 pedidos somando R$ 180,50! [R$ 40.50, R$ 35.00, ...]. Que tal focar em cozinhar mais e pedir só 1x na semana? Isso ajudaria a economizar!
 
-# 💡 **Loja de Jogos:** Vi 3 compras lá [R$ 150, R$ 99, R$ 50]. Elas eram mesmo necessárias?
+# **Loja de Jogos:** Vi 3 compras lá [R$ 150, R$ 99, R$ 50]. Elas eram mesmo necessárias?
 
 # Só nesses dois pontos, você pode economizar aproximadamente R$ 200 no próximo mês!
 
 # Quer que eu veja os micropagamentos?
 # """
-
 #     modelo = genai.GenerativeModel('models/gemini-2.5-pro') 
     
 #     if chat_history is None:
@@ -225,10 +316,16 @@
 # if "chat_history" not in st.session_state:
 #     st.session_state.chat_history = None # Para manter o histórico do Gemini
 
+# if 'data_inicio_contexto' not in st.session_state:
+#     st.session_state.data_inicio_contexto = None
+# if 'data_fim_contexto' not in st.session_state:
+#     st.session_state.data_fim_contexto = None
+
 # # Exibe mensagens anteriores
 # for message in st.session_state.messages:
 #     with st.chat_message(message["role"]):
-#         st.markdown(message["content"])
+#         content_corrigido = message["content"].replace("$", "\\$")
+#         st.markdown(content_corrigido)
 
 # # Captura a entrada do usuário
 # if prompt := st.chat_input("Como posso te ajudar a economizar hoje?"):
@@ -240,8 +337,20 @@
 #     with st.chat_message("assistant"):
 #         with st.spinner("Analisando seus gastos..."):
 #             # 1. Filtra o DataFrame com base na pergunta do usuário
-#             df_contextual = aplicar_filtro_temporal(st.session_state.df_completo, prompt)
+#             novo_inicio, novo_fim = filtro_temporal(prompt, data_referencia=datetime.now())
+            
+#             # 2. Se um novo período foi encontrado, ATUALIZA o estado da sessão
+#             if novo_inicio and novo_fim:
+#                 st.session_state.data_inicio_contexto = novo_inicio
+#                 st.session_state.data_fim_contexto = novo_fim
+#                 st.info(f"Foco da análise atualizado para o período: **{novo_inicio.strftime('%d/%m/%Y')} a {novo_fim.strftime('%d/%m/%Y')}**")
 
+#             # 3. Aplica o filtro usando as datas salvas no ESTADO DA SESSÃO
+#             df_contextual = aplicar_filtro_temporal(
+#                 st.session_state.df_completo,
+#                 st.session_state.data_inicio_contexto,
+#                 st.session_state.data_fim_contexto
+#             )
 #             # 2. Filtra apenas os gastos discricionários desse contexto
 #             df_filtrado = filtrar_gastos_discricionarios(df_contextual)
             
@@ -252,7 +361,8 @@
 #             full_response, new_chat_history = chamar_gemini_com_rag(prompt, insights, st.session_state.chat_history)
 #             st.session_state.chat_history = new_chat_history # Atualiza o histórico do Gemini
 
-#             st.markdown(full_response)
+#             response_corrigida = full_response.replace("$", "\\$")
+#             st.markdown(response_corrigida)
     
 #     # Adiciona a resposta da IA ao histórico do Streamlit
 #     st.session_state.messages.append({"role": "assistant", "content": full_response})
@@ -394,6 +504,21 @@ def filtro_temporal(texto_usuario, data_referencia=None):
             return data_inicio, data_fim
 
     # 5. Períodos relativos (como na função anterior, mas mais robustos)
+    if re.search(r"ultimo ano|último ano|últimos 365 dias", texto):
+        data_inicio = hoje - timedelta(days=364) # 364 para incluir hoje, totalizando 365 dias
+        data_fim = hoje
+        return data_inicio, data_fim
+    padrao_meses = re.search(r"(?:últimos|ultimos)\s*(\d+)\s*meses|(\d+)\s*meses", texto)
+    if padrao_meses:
+        # O resultado pode estar no grupo 1 ou 2, dependendo se "últimos" foi usado
+        num_meses_str = padrao_meses.group(1) or padrao_meses.group(2)
+        if num_meses_str:
+            num_meses = int(num_meses_str)
+            # pd.DateOffset é a forma correta de subtrair meses
+            data_inicio = hoje - pd.DateOffset(months=num_meses)
+            data_fim = hoje
+            return data_inicio, data_fim
+    # --- FIM DO BLOCO ---
     if re.search(r"último mês|ultimos 30 dias|ultimo mes", texto):
         return hoje - timedelta(days=29), hoje
     if re.search(r"última semana|ultimos 7 dias", texto):
@@ -505,14 +630,11 @@ Seu tom é leve, não muito formal e direto ao ponto.
 - Seja **MUITO conciso**, como em uma mensagem de WhatsApp.
 - Use quebras de linha simples para facilitar a leitura, não parágrafos longos.
 - Vá direto aos pontos de economia. Chame os gastos fúteis de "gastos extras".
-- Dê exemplos concretos usando os dados de `top_5_destinatarios_com_detalhes`. 
-  - Use a 'quantidade', 'total_gasto' e a lista 'ultimos_gastos_formatados' para montar sua sugestão.
-  - Os valores na lista 'ultimos_gastos_formatados' e 'total_gasto' já estão formatados como string (ex: "40.50"), basta adicionar "R$" na frente deles.
+- Dê exemplos concretos usando `top_5_destinatarios_com_valores`. Se houver muitas transações (ex: 7 no iFood), você pode agrupar: "Vi que foram 7 pedidos no iFood (R$ 50, R$ 45, ...), somando R$ X. Que tal diminuir?"
 - **NUNCA** use jargões como "gastos discricionários", "alocação de ativos", etc.
-- **IMPORTANTE: Sempre use "R$" (com R maiúsculo) para valores monetários. NUNCA use apenas o símbolo "$".** 
 - Sempre termine com uma pergunta rápida e interativa.
 
-### Exemplo de Resposta (baseado na estrutura do contexto):
+### Exemplo de Resposta:
 Olá! Dei uma olhada nos seus gastos do último mês.
 
 Reparei em alguns pontos em que podemos melhorar para uma melhor economia:
@@ -525,6 +647,7 @@ Só nesses dois pontos, você pode economizar aproximadamente R$ 200 no próximo
 
 Quer que eu veja os micropagamentos?
 """
+
     modelo = genai.GenerativeModel('models/gemini-2.5-pro') 
     
     if chat_history is None:
@@ -556,15 +679,16 @@ st.markdown("Use o chat abaixo para explorar seus padrões de gastos e identific
 
 # Carregar os dados uma única vez e armazenar em cache
 # Isso é importante para performance, para não recarregar o CSV a cada interação.
-if 'df_completo' not in st.session_state:
-    st.session_state.df_completo = carregar_e_preparar_dados()
-    if st.session_state.df_completo is None:
-        st.stop() # Interrompe se o CSV não for encontrado
 
-st.sidebar.header("Informações do Dataset")
-st.sidebar.write(f"Transações carregadas: {len(st.session_state.df_completo)} (1 ano)")
-st.sidebar.write(f"Período: {st.session_state.df_completo['data'].min().strftime('%d/%m/%Y')} - {st.session_state.df_completo['data'].max().strftime('%d/%m/%Y')}")
-st.sidebar.info("A IA vai filtrar os dados com base nas suas perguntas (ex: 'último mês').")
+df_inicial = carregar_e_preparar_dados()
+if df_inicial is None:
+    st.error("Arquivo de transações não encontrado. Verifique o caminho e o nome do arquivo.")
+    st.stop()
+
+#st.sidebar.header("Informações do Dataset")
+#st.sidebar.write(f"Transações carregadas: {len(df_inicial)}")
+#st.sidebar.write(f"Período: {df_inicial['data'].min().strftime('%d/%m/%Y')} - {df_inicial['data'].max().strftime('%d/%m/%Y')}")
+#st.sidebar.info("A IA vai filtrar os dados com base nas suas perguntas (ex: 'último mês').")
 
 # Inicializa o histórico do chat
 if "messages" not in st.session_state:
@@ -580,18 +704,23 @@ if 'data_fim_contexto' not in st.session_state:
 # Exibe mensagens anteriores
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        content_corrigido = message["content"].replace("$", "\\$")
-        st.markdown(content_corrigido)
+        st.markdown(message["content"].replace("$", "\\$"))
 
 # Captura a entrada do usuário
 if prompt := st.chat_input("Como posso te ajudar a economizar hoje?"):
     # Adiciona a mensagem do usuário ao histórico
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(prompt.replace("$", "\\$"))
 
     with st.chat_message("assistant"):
         with st.spinner("Analisando seus gastos..."):
+
+            df_completo = carregar_e_preparar_dados()
+            if df_completo is None:
+                st.error("Não foi possível recarregar o arquivo de transações.")
+                st.stop()
+
             # 1. Filtra o DataFrame com base na pergunta do usuário
             novo_inicio, novo_fim = filtro_temporal(prompt, data_referencia=datetime.now())
             
@@ -603,10 +732,15 @@ if prompt := st.chat_input("Como posso te ajudar a economizar hoje?"):
 
             # 3. Aplica o filtro usando as datas salvas no ESTADO DA SESSÃO
             df_contextual = aplicar_filtro_temporal(
-                st.session_state.df_completo,
+                df_completo,
                 st.session_state.data_inicio_contexto,
                 st.session_state.data_fim_contexto
             )
+            st.sidebar.header("Informações do Dataset")
+            st.sidebar.write(f"Transações na análise atual: {len(df_contextual)}")
+            st.sidebar.write(f"Período total dos dados: {df_contextual['data'].min().strftime('%d/%m/%Y')} - {df_contextual['data'].max().strftime('%d/%m/%Y')}")
+            st.sidebar.info("A IA vai filtrar os dados com base nas suas perguntas (ex: 'último mês').")
+
             # 2. Filtra apenas os gastos discricionários desse contexto
             df_filtrado = filtrar_gastos_discricionarios(df_contextual)
             
